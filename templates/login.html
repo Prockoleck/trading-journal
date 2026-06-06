@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}Login — Trading Journal{% endblock %}
+{% block content %}
+<div class="row justify-content-center" style="margin-top:15vh">
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-body p-4">
+        <h4 class="text-center mb-4"><i class="bi bi-journal-bookmark-fill"></i> Trading Journal</h4>
+        <form method="post">
+          <div class="mb-3">
+            <label class="form-label">Username</label>
+            <input type="text" name="username" class="form-control" value="admin" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Password</label>
+            <input type="password" name="password" class="form-control" value="admin" required>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Login</button>
+        </form>
+        <p class="text-center text-muted small mt-3">Default: admin / admin</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

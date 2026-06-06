@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+{% block title %}Trades — Trading Journal{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h4 class="mb-0"><i class="bi bi-list-ul me-1"></i> Trade History</h4>
+  <div class="d-flex gap-2 flex-wrap">
+    <button class="btn btn-outline-light btn-sm" data-bs-toggle="collapse" data-bs-target="#filterCollapse"><i class="bi bi-funnel"></i> Filter</button>
+    <a href="/trades/add" class="btn btn-primary btn-sm"><i class="bi bi-plus-circle"></i> New Trade</a>
+    <button class="btn btn-outline-light btn-sm" data-bs-toggle="modal" data-bs-target="#importModal"><i class="bi bi-upload"></i> Import CSV</button>
+    <a href="/import-email" class="btn btn-outline-light btn-sm"><i class="bi bi-envelope"></i> Import Email</a>
+  </div>
+</div>
+
+<div class="collapse mb-3" id="filterCollapse">
+  <div class="card card-body">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-auto">
+        <label class="form-label small">Symbol</label>
+        <select name="symbol" class="form-select form-select-sm">
+          <option value="">All</option>
+          {% for s in symbols %}
+            <option value="{{ s }}" {% if symbol_filter == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <label class="form-label small">Direction</label>
+        <select name="direction" class="form-select form-select-sm">
+          <option value="">All</option>
+          <option value="buy" {% if direction_filter == 'buy' %}selected{% endif %}>Buy</option>
+          <option value="sell" {% if direction_filter == 'sell' %}selected{% endif %}>Sell</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <label class="form-label small">Sort</label>
+        <select name="sort" class="form-select form-select-sm">
+          <option value="-open_time" {% if sort == '-open_time' %}selected{% endif %}>Newest</option>
+          <option value="open_time" {% if sort == 'open_time' %}selected{% endif %}>Oldest</option>
+          <option value="-profit" {% if sort == '-profit' %}selected{% endif %}>Profit ↓</option>
+          <option value="profit" {% if sort == 'profit' %}selected{% endif %}>Profit ↑</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+        <a href="/trades" class="btn btn-outline-light btn-sm">Clear</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body p-0">
+    {% if trades.items %}
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Ticket</th><th>Date</th><th>Symbol</th><th>Dir</th><th>Vol</th><th>Open</th><th>Close</th><th>Profit</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in trades.items %}
+              <tr>
+                <td><small class="text-muted">{{ t.mt5_ticket or '—' }}</small></td>
+                <td><small>{{ t.open_time.strftime('%m/%d %H:%M') }}</small></td>
+                <td>{{ t.symbol }}</td>
+                <td><span class="badge {% if t.direction == 'buy' %}badge-buy{% else %}badge-sell{% endif %}">{{ t.direction }}</span></td>
+                <td>{{ t.volume }}</td>
+                <td>{{ t.open_price }}</td>
+                <td>{{ t.close_price or '—' }}</td>
+                <td class="fw-semibold {% if t.profit and t.profit >= 0 %}profit{% elif t.profit %}loss{% endif %}">
+                  {% if t.profit %}${{ "{:,.2f}".format(t.profit) }}{% else %}—{% endif %}
+                </td>
+                <td>
+                  <a href="/trades/{{ t.id }}/edit" class="btn btn-sm btn-outline-light py-0 px-1"><i class="bi bi-pencil"></i></a>
+                  <form method="post" action="/trades/{{ t.id }}/delete" style="display:inline" onsubmit="return confirm('Delete this trade?')">
+                    <button class="btn btn-sm btn-outline-danger py-0 px-1"><i class="bi bi-trash"></i></button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="p-4 text-center text-muted">No trades yet. <a href="/trades/add">Add your first trade</a>.</div>
+    {% endif %}
+  </div>
+</div>
+
+{% if trades.pages > 1 %}
+<nav class="mt-3">
+  <ul class="pagination pagination-sm justify-content-center">
+    {% for p in range(1, trades.pages + 1) %}
+      <li class="page-item {% if p == trades.page %}active{% endif %}">
+        <a class="page-link" href="?page={{ p }}&symbol={{ symbol_filter }}&direction={{ direction_filter }}&sort={{ sort }}">{{ p }}</a>
+      </li>
+    {% endfor %}
+  </ul>
+</nav>
+{% endif %}
+
+<div class="modal fade" id="importModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form method="post" action="/trades/import-csv" enctype="multipart/form-data" class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">Import CSV</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <p class="small text-muted">Expected columns: Symbol, Direction, Volume, Open Price, Close Price, Profit, Open Time (YYYY-MM-DD HH:MM:SS), Close Time, Commission, Swap, Strategy, Tags, Ticket</p>
+        <input type="file" name="file" accept=".csv" class="form-control" required>
+      </div>
+      <div class="modal-footer"><button class="btn btn-primary">Import</button></div>
+    </form>
+  </div>
+</div>
+{% endblock %}

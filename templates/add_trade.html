@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% block title %}{% if trade %}Edit{% else %}New{% endif %} Trade — Trading Journal{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-{% if trade %}pencil{% else %}plus-circle{% endif %} me-1"></i>
+        {% if trade %}Edit Trade{% else %}New Trade{% endif %}
+      </div>
+      <div class="card-body">
+        <form method="post">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Symbol</label>
+              <input type="text" name="symbol" class="form-control" placeholder="EURUSD" value="{{ trade.symbol if trade else '' }}" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Direction</label>
+              <select name="direction" class="form-select" required>
+                <option value="buy" {% if trade and trade.direction == 'buy' %}selected{% endif %}>Buy (Long)</option>
+                <option value="sell" {% if trade and trade.direction == 'sell' %}selected{% endif %}>Sell (Short)</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Volume (lots)</label>
+              <input type="number" step="0.01" name="volume" class="form-control" placeholder="0.01" value="{{ trade.volume if trade else '0.01' }}" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Open Price</label>
+              <input type="number" step="0.00001" name="open_price" class="form-control" placeholder="1.10500" value="{{ trade.open_price if trade else '' }}" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Close Price</label>
+              <input type="number" step="0.00001" name="close_price" class="form-control" placeholder="1.11000" value="{{ trade.close_price if trade else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Profit $</label>
+              <input type="number" step="0.01" name="profit" class="form-control" placeholder="Auto-calc if empty" value="{{ trade.profit if trade else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Stop Loss</label>
+              <input type="number" step="0.00001" name="stop_loss" class="form-control" value="{{ trade.stop_loss if trade else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Take Profit</label>
+              <input type="number" step="0.00001" name="take_profit" class="form-control" value="{{ trade.take_profit if trade else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Commission</label>
+              <input type="number" step="0.01" name="commission" class="form-control" placeholder="0" value="{{ trade.commission if trade else '0' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Swap</label>
+              <input type="number" step="0.01" name="swap" class="form-control" placeholder="0" value="{{ trade.swap if trade else '0' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Open Time</label>
+              <input type="datetime-local" name="open_time" class="form-control" value="{{ trade.open_time.strftime('%Y-%m-%dT%H:%M') if trade else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Close Time</label>
+              <input type="datetime-local" name="close_time" class="form-control" value="{{ trade.close_time.strftime('%Y-%m-%dT%H:%M') if trade and trade.close_time else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Strategy</label>
+              <input type="text" name="strategy" class="form-control" placeholder="e.g. Trend Following" value="{{ trade.strategy if trade else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Tags</label>
+              <input type="text" name="tags" class="form-control" placeholder="scalp, news, eur" value="{{ trade.tags if trade else '' }}">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Notes</label>
+              <textarea name="notes" class="form-control" rows="3" placeholder="Why did you take this trade? What was the outcome?">{{ trade.notes if trade else '' }}</textarea>
+            </div>
+          </div>
+          <div class="mt-4 d-flex gap-2">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> {% if trade %}Update{% else %}Save Trade{% endif %}</button>
+            <a href="/trades" class="btn btn-outline-light">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

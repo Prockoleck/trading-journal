@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard — Trading Journal{% endblock %}
+{% block content %}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card text-center">
+      <div class="stat-label">Total Trades</div>
+      <div class="stat-value">{{ total_trades }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card text-center">
+      <div class="stat-label">Win Rate</div>
+      <div class="stat-value {% if win_rate >= 50 %}profit{% else %}loss{% endif %}">{{ win_rate }}%</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card text-center">
+      <div class="stat-label">P&L</div>
+      <div class="stat-value {% if total_profit >= 0 %}profit{% else %}loss{% endif %}">${{ "{:,.2f}".format(total_profit) }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card text-center">
+      <div class="stat-label">Wins / Losses</div>
+      <div class="stat-value"><span class="profit">{{ winning }}</span> / <span class="loss">{{ losing }}</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header fw-semibold"><i class="bi bi-trophy me-1"></i> Best & Worst</div>
+      <div class="card-body">
+        {% if best_trade %}
+          <p><strong class="profit">Best:</strong> ${{ "{:,.2f}".format(best_trade.profit) }} — {{ best_trade.symbol }} ({{ best_trade.direction }})</p>
+        {% endif %}
+        {% if worst_trade %}
+          <p><strong class="loss">Worst:</strong> ${{ "{:,.2f}".format(worst_trade.profit) }} — {{ worst_trade.symbol }} ({{ worst_trade.direction }})</p>
+        {% endif %}
+        {% if not best_trade and not worst_trade %}
+          <p class="text-muted mb-0">No closed trades yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header fw-semibold"><i class="bi bi-pie-chart me-1"></i> Most Traded Pairs</div>
+      <div class="card-body">
+        {% if top_pairs %}
+          {% for pair, cnt in top_pairs %}
+            <div class="d-flex justify-content-between mb-1">
+              <span>{{ pair }}</span>
+              <span class="badge bg-secondary">{{ cnt }}</span>
+            </div>
+          {% endfor %}
+        {% else %}
+          <p class="text-muted mb-0">No data yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header fw-semibold"><i class="bi bi-calendar3 me-1"></i> Monthly Performance</div>
+  <div class="card-body p-0">
+    {% if monthly %}
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead><tr><th>Month</th><th>Trades</th><th>P&L</th></tr></thead>
+          <tbody>
+            {% for m in monthly %}
+              <tr>
+                <td>{{ m.month }}</td>
+                <td>{{ m.count }}</td>
+                <td class="{% if m.pnl and m.pnl >= 0 %}profit{% else %}loss{% endif %} fw-semibold">
+                  {% if m.pnl %}${{ "{:,.2f}".format(m.pnl) }}{% else %}$0.00{% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="p-3 text-muted">No closed trades yet.</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header fw-semibold"><i class="bi bi-clock-history me-1"></i> Recent Trades</div>
+  <div class="card-body p-0">
+    {% if recent %}
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead><tr><th>Date</th><th>Symbol</th><th>Dir</th><th>Volume</th><th>Profit</th></tr></thead>
+          <tbody>
+            {% for t in recent %}
+              <tr>
+                <td>{{ t.open_time.strftime('%m/%d %H:%M') }}</td>
+                <td>{{ t.symbol }}</td>
+                <td><span class="badge {% if t.direction == 'buy' %}badge-buy{% else %}badge-sell{% endif %}">{{ t.direction }}</span></td>
+                <td>{{ t.volume }}</td>
+                <td class="fw-semibold {% if t.profit and t.profit >= 0 %}profit{% elif t.profit %}loss{% endif %}">
+                  {% if t.profit %}${{ "{:,.2f}".format(t.profit) }}{% else %}—{% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="p-3 text-muted">No trades recorded. <a href="/trades/add">Add your first trade</a>.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
