@@ -3,14 +3,44 @@
 {% block content %}
 <div class="row justify-content-center">
   <div class="col-lg-8">
-    <div class="card mb-4">
-      <div class="card-header fw-semibold"><i class="bi bi-envelope me-1"></i> Email Auto-Import (MT5 Trade Notifications)</div>
+
+    <div class="card mb-4 border-success">
+      <div class="card-header fw-semibold text-success"><i class="bi bi-cloud-arrow-down me-1"></i> MyFXBook Auto-Import (RECOMMENDED)</div>
       <div class="card-body">
         <p class="text-muted small">
-          Configure your email so the app can parse MT5 trade notifications.
-          In MT5 mobile: <strong>Settings → Email → set your email</strong> to forward trade confirmations here.
-          The app scans for emails from MetaQuotes / MT5 containing trade details.
+          <strong>Connect your MT5 account to MyFXBook</strong> (free) — enter your broker server, account number, and investor password there.
+          MyFXBook will auto-sync all your trades from the broker directly. Then enter your MyFXBook login here to pull them into your journal.
         </p>
+        <p class="small mb-2"><strong>First time?</strong></p>
+        <ol class="small mb-3">
+          <li>Go to <a href="https://www.myfxbook.com" target="_blank">myfxbook.com</a> → Sign up (free)</li>
+          <li>Add Account → MetaTrader 5 → enter your <strong>server, account #, and investor password</strong> (read-only)</li>
+          <li>MyFXBook syncs your trades automatically. Come back here and enter your MyFXBook login below.</li>
+        </ol>
+        <form method="post">
+          <div class="mb-3">
+            <label class="form-label">MyFXBook Email</label>
+            <input type="email" name="myfxbook_email" class="form-control" placeholder="you@email.com" value="{{ myfxbook.email }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">MyFXBook Password</label>
+            <input type="password" name="myfxbook_password" class="form-control" placeholder="Your MyFXBook password" value="{{ myfxbook.password }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Account ID (optional — leave blank to use first account)</label>
+            <input type="text" name="myfxbook_account_id" class="form-control" placeholder="Leave blank" value="{{ myfxbook.account_id }}">
+            <div class="form-text small text-muted">Only needed if you have multiple MT5 accounts on MyFXBook</div>
+          </div>
+          <button type="submit" class="btn btn-success"><i class="bi bi-save"></i> Save</button>
+          <a href="/import-myfxbook" class="btn btn-outline-success ms-2"><i class="bi bi-cloud-download"></i> Import Trades Now</a>
+        </form>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-header fw-semibold"><i class="bi bi-envelope me-1"></i> Email Auto-Import (MT5 Desktop)</div>
+      <div class="card-body">
+        <p class="text-muted small">Only works if you have <strong>MT5 on a desktop PC</strong> and can set up email notifications from the desktop terminal.</p>
         <form method="post">
           <div class="mb-3">
             <label class="form-label">IMAP Server</label>
@@ -26,11 +56,10 @@
             <input type="password" name="email_pass" class="form-control" placeholder="Use an app password (not your main password)" value="{{ config.email_pass }}">
             <div class="form-text small text-muted">
               For Gmail: create an <a href="https://myaccount.google.com/apppasswords" target="_blank">App Password</a>.
-              For Outlook: use your regular password or an app password.
             </div>
           </div>
-          <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save Settings</button>
-          <a href="/import-email" class="btn btn-outline-light ms-2"><i class="bi bi-cloud-download"></i> Import Now</a>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save</button>
+          <a href="/import-email" class="btn btn-outline-light ms-2"><i class="bi bi-cloud-download"></i> Import Email</a>
         </form>
       </div>
     </div>

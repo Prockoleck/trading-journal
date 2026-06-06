@@ -28,6 +28,13 @@ email_config = {
     'last_checked': None,
 }
 
+myfxbook_config = {
+    'email': '',
+    'password': '',
+    'session': '',
+    'account_id': '',
+}
+
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -405,14 +412,17 @@ def parse_mt5_email(email_body):
 @app.route('/settings', methods=['GET', 'POST'])
 @login_required
 def settings():
-    global email_config
+    global email_config, myfxbook_config
     if request.method == 'POST':
         email_config['imap_server'] = request.form.get('imap_server', '')
         email_config['email_addr'] = request.form.get('email_addr', '')
         email_config['email_pass'] = request.form.get('email_pass', '')
+        myfxbook_config['email'] = request.form.get('myfxbook_email', '')
+        myfxbook_config['password'] = request.form.get('myfxbook_password', '')
+        myfxbook_config['account_id'] = request.form.get('myfxbook_account_id', '')
         flash('Settings saved')
         return redirect(url_for('settings'))
-    return render_template('settings.html', config=email_config)
+    return render_template('settings.html', config=email_config, myfxbook=myfxbook_config)
 
 
 @app.route('/import-email')
@@ -486,6 +496,95 @@ def import_email():
         flash(f'Imported {count} trades from email')
     except Exception as e:
         flash(f'Email import error: {e}')
+    return redirect(url_for('trade_list'))
+
+
+@app.route('/import-myfxbook')
+@login_required
+def import_myfxbook():
+    global myfxbook_config
+    if not myfxbook_config.get('email') or not myfxbook_config.get('password'):
+        flash('Configure MyFXBook credentials in Settings first')
+        return redirect(url_for('settings'))
+
+    import requests as req
+    BASE = 'https://www.myfxbook.com/api'
+
+    try:
+        r = req.post(f'{BASE}/login.json', data={
+            'email': myfxbook_config['email'],
+            'password': myfxbook_config['password'],
+        }, timeout=15)
+        data = r.json()
+        if data.get('error') or not data.get('session'):
+            flash(f'MyFXBook login failed: {data.get("message", "unknown")}')
+            return redirect(url_for('settings'))
+        session = data['session']
+
+        myfxbook_config['session'] = session
+
+        if not myfxbook_config.get('account_id'):
+            r = req.get(f'{BASE}/get-my-accounts.json?session={session}', timeout=15)
+            accts = r.json()
+            if accts.get('error') or not accts.get('accounts'):
+                flash(f'No accounts found on MyFXBook')
+                return redirect(url_for('settings'))
+            myfxbook_config['account_id'] = str(accts['accounts'][0]['id'])
+
+        r = req.get(f'{BASE}/get-history.json?session={session}&id={myfxbook_config["account_id"]}', timeout=15)
+        history = r.json()
+        if history.get('error'):
+            flash(f'Failed to get history: {history.get("message")}')
+            return redirect(url_for('settings'))
+
+        count = 0
+        for t in history.get('history', []):
+            ticket = t.get('id') or t.get('comment', '').strip()
+            if ticket:
+                existing = Trade.query.filter_by(mt5_ticket=str(ticket)).first()
+                if existing:
+                    continue
+
+            sizing = t.get('sizing', {})
+            volume = float(sizing.get('value', 0)) if sizing.get('type') == 'lots' else float(sizing.get('value', 0)) / 100000
+            if volume <= 0:
+                volume = 0.01
+
+            action = (t.get('action') or '').lower()
+            direction = 'buy' if 'buy' in action else 'sell'
+
+            try:
+                open_time = datetime.strptime(t['openTime'], '%m/%d/%Y %H:%M')
+            except (ValueError, KeyError):
+                open_time = datetime.utcnow()
+            try:
+                close_time = datetime.strptime(t['closeTime'], '%m/%d/%Y %H:%M') if t.get('closeTime') else None
+            except (ValueError, KeyError):
+                close_time = None
+
+            trade = Trade(
+                symbol=(t.get('symbol') or '').upper(),
+                direction=direction,
+                volume=volume,
+                open_price=float(t.get('openPrice', 0)),
+                close_price=float(t.get('closePrice')) if t.get('closePrice') else None,
+                stop_loss=float(t.get('sl')) if t.get('sl') and float(t.get('sl')) != 0 else None,
+                take_profit=float(t.get('tp')) if t.get('tp') and float(t.get('tp')) != 0 else None,
+                profit=float(t.get('profit')) if t.get('profit') else None,
+                open_time=open_time,
+                close_time=close_time,
+                commission=float(t.get('commission', 0)),
+                swap=float(t.get('interest', 0)),
+                notes=t.get('comment'),
+                mt5_ticket=str(ticket) if ticket else None,
+            )
+            db.session.add(trade)
+            count += 1
+
+        db.session.commit()
+        flash(f'Imported {count} trades from MyFXBook')
+    except Exception as e:
+        flash(f'MyFXBook import error: {e}')
     return redirect(url_for('trade_list'))
 
 

@@ -1,0 +1,36 @@
+{
+  "name": "MT5 → Trading Journal",
+  "flows": [
+    {
+      "id": 1,
+      "name": "Forward MT5 notifications to journal",
+      "blocks": [
+        {
+          "type": "notification",
+          "id": 1,
+          "x": 100,
+          "y": 100,
+          "args": {
+            "package": "com.metaquote.mt5",
+            "intercept": true
+          }
+        },
+        {
+          "type": "http_request",
+          "id": 2,
+          "x": 350,
+          "y": 100,
+          "args": {
+            "url": "http://192.168.1.4:5000/api/webhook?api_key=YOUR_API_KEY_HERE",
+            "method": "POST",
+            "headers": {"Content-Type": "application/json"},
+            "body": "{\"symbol\":\"{notification.extras.symbol}\",\"direction\":\"{notification.extras.direction}\",\"volume\":{notification.extras.volume},\"open_price\":{notification.extras.open_price},\"profit\":{notification.extras.profit},\"mt5_ticket\":\"{notification.extras.ticket}\"}"
+          }
+        }
+      ],
+      "connections": [
+        {"from": 1, "to": 2}
+      ]
+    }
+  ]
+}
