@@ -35,7 +35,21 @@
       </div>
     </div>
 
-    <div class="card">
+    <div class="card mb-4">
+      <div class="card-header fw-semibold"><i class="bi bi-key me-1"></i> API Key (for external apps)</div>
+      <div class="card-body">
+        <p class="text-muted small">Use this key to send trades from <strong>notification listener apps</strong> (Tasker, Automate, webhook apps) via <code>POST /api/webhook</code> with header <code>X-API-Key: YOUR_KEY</code>.</p>
+        <div class="input-group">
+          <input type="text" class="form-control" id="apiKeyInput" value="{{ current_user.api_key or 'No key generated' }}" readonly>
+          <button class="btn btn-outline-light" onclick="navigator.clipboard.writeText(document.getElementById('apiKeyInput').value)"><i class="bi bi-clipboard"></i></button>
+          <form method="post" action="/settings/api-key" style="display:inline">
+            <button class="btn btn-primary" type="submit"><i class="bi bi-arrow-repeat"></i> Generate New</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-4">
       <div class="card-header fw-semibold"><i class="bi bi-info-circle me-1"></i> How to Set Up MT5 Email Notifications</div>
       <div class="card-body small">
         <ol class="mb-0">
@@ -46,6 +60,37 @@
           <li>Each trade will send an email → the app will auto-import it</li>
           <li>Hit <strong>"Import Now"</strong> above or the <strong>Import Email</strong> button on the Trades page</li>
         </ol>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header fw-semibold"><i class="bi bi-code-slash me-1"></i> API Documentation</div>
+      <div class="card-body small">
+        <p>All API endpoints require the <code>X-API-Key</code> header (or <code>?api_key=</code> query param).</p>
+        <table class="table table-sm small">
+          <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td>POST</td><td><code>/api/webhook</code></td><td>Receive trade from any app (notifications, copiers)</td></tr>
+            <tr><td>GET</td><td><code>/api/trades</code></td><td>List all trades</td></tr>
+            <tr><td>POST</td><td><code>/api/trades</code></td><td>Create a trade (JSON body)</td></tr>
+            <tr><td>GET</td><td><code>/api/trades/:id</code></td><td>Get single trade</td></tr>
+            <tr><td>PUT</td><td><code>/api/trades/:id</code></td><td>Update trade</td></tr>
+            <tr><td>DELETE</td><td><code>/api/trades/:id</code></td><td>Delete trade</td></tr>
+            <tr><td>GET</td><td><code>/api/stats</code></td><td>Dashboard stats</td></tr>
+          </tbody>
+        </table>
+        <p class="mb-0 mt-2"><strong>Webhook body example:</strong></p>
+        <pre class="mb-0"><code>{
+  "symbol": "EURUSD",
+  "direction": "buy",
+  "volume": 0.01,
+  "open_price": 1.10500,
+  "close_price": 1.11000,
+  "profit": 50.0,
+  "open_time": "2026-06-06T14:30:00",
+  "mt5_ticket": "12345678",
+  "strategy": "scalp"
+}</code></pre>
       </div>
     </div>
   </div>

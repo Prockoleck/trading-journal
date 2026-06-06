@@ -1,11 +1,11 @@
-import os
+import os, secrets
 import imaplib
 import email
 import re
 import html
 from datetime import datetime, date
 from email.header import decode_header
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -33,11 +33,15 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
+    api_key = db.Column(db.String(64), unique=True, nullable=True)
 
     def set_password(self, pw):
         self.password_hash = generate_password_hash(pw)
     def check_password(self, pw):
         return check_password_hash(self.password_hash, pw)
+    def generate_api_key(self):
+        self.api_key = secrets.token_hex(32)
+        return self.api_key
 
 
 class Trade(db.Model):
@@ -104,6 +108,8 @@ def load_user(uid):
 
 @app.before_request
 def create_tables():
+    if os.environ.get('TESTING'):
+        return
     db.create_all()
     if not User.query.first():
         admin = User(username='admin')
@@ -506,12 +512,182 @@ def api_stats():
     })
 
 
+def require_api_key(f):
+    from functools import wraps
+    @wraps(f)
+    def decorator(*a, **kw):
+        key = request.headers.get('X-API-Key') or request.args.get('api_key')
+        if not key:
+            abort(401, description='API key required')
+        user = User.query.filter_by(api_key=key).first()
+        if not user:
+            abort(403, description='Invalid API key')
+        return f(*a, **kw)
+    return decorator
+
+
+@app.route('/api/webhook', methods=['POST'])
+@require_api_key
+def api_webhook():
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({'error': 'Invalid JSON'}), 400
+
+    ticket = data.get('ticket') or data.get('mt5_ticket')
+    if ticket:
+        existing = Trade.query.filter_by(mt5_ticket=str(ticket)).first()
+        if existing:
+            return jsonify({'message': 'Duplicate', 'id': existing.id}), 200
+
+    symbol = (data.get('symbol') or '').upper()
+    direction = (data.get('direction') or 'buy').lower()
+    volume = float(data.get('volume', 0.01))
+
+    try:
+        open_time = datetime.fromisoformat(data['open_time']) if data.get('open_time') else datetime.utcnow()
+    except Exception:
+        open_time = datetime.utcnow()
+    try:
+        close_time = datetime.fromisoformat(data['close_time']) if data.get('close_time') else None
+    except Exception:
+        close_time = None
+
+    trade = Trade(
+        symbol=symbol,
+        direction=direction,
+        volume=volume,
+        open_price=float(data.get('open_price', 0)),
+        close_price=float(data['close_price']) if data.get('close_price') else None,
+        stop_loss=float(data['stop_loss']) if data.get('stop_loss') else None,
+        take_profit=float(data['take_profit']) if data.get('take_profit') else None,
+        profit=float(data['profit']) if data.get('profit') else None,
+        open_time=open_time,
+        close_time=close_time,
+        commission=float(data.get('commission', 0)),
+        swap=float(data.get('swap', 0)),
+        strategy=data.get('strategy'),
+        notes=data.get('notes'),
+        tags=data.get('tags'),
+        mt5_ticket=str(ticket) if ticket else None,
+    )
+    db.session.add(trade)
+    db.session.commit()
+    return jsonify({'message': 'Trade created', 'id': trade.id}), 201
+
+
+@app.route('/api/trades', methods=['GET', 'POST'])
+@require_api_key
+def api_trades_crud():
+    if request.method == 'GET':
+        trades = Trade.query.order_by(Trade.open_time.desc()).all()
+        return jsonify([t.to_dict() for t in trades])
+
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({'error': 'Invalid JSON'}), 400
+
+    ticket = data.get('ticket') or data.get('mt5_ticket')
+    if ticket:
+        existing = Trade.query.filter_by(mt5_ticket=str(ticket)).first()
+        if existing:
+            return jsonify({'message': 'Duplicate', 'id': existing.id}), 200
+
+    try:
+        open_time = datetime.fromisoformat(data['open_time']) if data.get('open_time') else datetime.utcnow()
+    except Exception:
+        open_time = datetime.utcnow()
+    try:
+        close_time = datetime.fromisoformat(data['close_time']) if data.get('close_time') else None
+    except Exception:
+        close_time = None
+
+    trade = Trade(
+        symbol=(data.get('symbol') or '').upper(),
+        direction=(data.get('direction') or 'buy').lower(),
+        volume=float(data.get('volume', 0.01)),
+        open_price=float(data.get('open_price', 0)),
+        close_price=float(data['close_price']) if data.get('close_price') else None,
+        stop_loss=float(data['stop_loss']) if data.get('stop_loss') else None,
+        take_profit=float(data['take_profit']) if data.get('take_profit') else None,
+        profit=float(data['profit']) if data.get('profit') else None,
+        open_time=open_time,
+        close_time=close_time,
+        commission=float(data.get('commission', 0)),
+        swap=float(data.get('swap', 0)),
+        strategy=data.get('strategy'),
+        notes=data.get('notes'),
+        tags=data.get('tags'),
+        mt5_ticket=str(ticket) if ticket else None,
+    )
+    db.session.add(trade)
+    db.session.commit()
+    return jsonify({'message': 'Trade created', 'id': trade.id}), 201
+
+
+@app.route('/api/trades/<int:tid>', methods=['GET', 'PUT', 'DELETE'])
+@require_api_key
+def api_trade_detail(tid):
+    trade = db.session.get(Trade, tid)
+    if not trade:
+        return jsonify({'error': 'Not found'}), 404
+
+    if request.method == 'GET':
+        return jsonify(trade.to_dict())
+
+    if request.method == 'DELETE':
+        db.session.delete(trade)
+        db.session.commit()
+        return jsonify({'message': 'Deleted'}), 200
+
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({'error': 'Invalid JSON'}), 400
+
+    trade.symbol = (data.get('symbol', trade.symbol)).upper()
+    trade.direction = data.get('direction', trade.direction)
+    trade.volume = float(data.get('volume', trade.volume))
+    trade.open_price = float(data.get('open_price', trade.open_price))
+    trade.close_price = float(data['close_price']) if 'close_price' in data and data['close_price'] is not None else (data['close_price'] if 'close_price' in data else trade.close_price)
+    trade.stop_loss = float(data['stop_loss']) if 'stop_loss' in data and data['stop_loss'] is not None else trade.stop_loss
+    trade.take_profit = float(data['take_profit']) if 'take_profit' in data and data['take_profit'] is not None else trade.take_profit
+    trade.profit = float(data['profit']) if 'profit' in data and data['profit'] is not None else trade.profit
+    trade.commission = float(data.get('commission', trade.commission))
+    trade.swap = float(data.get('swap', trade.swap))
+    trade.strategy = data.get('strategy', trade.strategy)
+    trade.notes = data.get('notes', trade.notes)
+    trade.tags = data.get('tags', trade.tags)
+    if data.get('mt5_ticket') is not None:
+        trade.mt5_ticket = str(data['mt5_ticket'])
+    try:
+        if data.get('open_time'):
+            trade.open_time = datetime.fromisoformat(data['open_time'])
+    except Exception:
+        pass
+    try:
+        if data.get('close_time'):
+            trade.close_time = datetime.fromisoformat(data['close_time'])
+    except Exception:
+        pass
+    db.session.commit()
+    return jsonify({'message': 'Updated', 'id': trade.id}), 200
+
+
+@app.route('/settings/api-key', methods=['POST'])
+@login_required
+def generate_api_key():
+    key = current_user.generate_api_key()
+    db.session.commit()
+    flash(f'New API key generated')
+    return redirect(url_for('settings'))
+
+
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-        if not User.query.first():
-            u = User(username='admin')
-            u.set_password('admin')
-            db.session.add(u)
-            db.session.commit()
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    if not os.environ.get('TESTING'):
+        with app.app_context():
+            db.create_all()
+            if not User.query.first():
+                u = User(username='admin')
+                u.set_password('admin')
+                db.session.add(u)
+                db.session.commit()
+        app.run(host='0.0.0.0', port=5000, debug=True)
